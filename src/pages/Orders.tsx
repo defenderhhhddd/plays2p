@@ -4,8 +4,6 @@ import {
   Clock, CheckCircle, XCircle, AlertCircle,
   Eye, ArrowUpRight, ArrowDownLeft, Calendar as CalendarIcon
 } from "lucide-react";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 
 interface Order {
   id: string;
@@ -32,32 +30,39 @@ const demoOrders: Order[] = [
 
 export default function Orders() {
   const [activeTab, setActiveTab] = useState<"incoming" | "outgoing">("incoming");
-  const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
-  const [startDate, endDate] = dateRange;
+  const [period, setPeriod] = useState<"today" | "yesterday" | "week" | "lastWeek">("today");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showDetails, setShowDetails] = useState(false);
 
-  const filterByDateRange = (order: Order) => {
-    if (!startDate && !endDate) return true;
-    if (startDate && !endDate) {
-      const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
-      return order.createdAt >= start;
+  const filterByPeriod = (order: Order) => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const weekStart = new Date(today);
+    weekStart.setDate(weekStart.getDate() - 7);
+    const lastWeekStart = new Date(weekStart);
+    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+    const lastWeekEnd = weekStart;
+
+    switch(period) {
+      case "today":
+        return order.createdAt >= today;
+      case "yesterday":
+        return order.createdAt >= yesterday && order.createdAt < today;
+      case "week":
+        return order.createdAt >= weekStart;
+      case "lastWeek":
+        return order.createdAt >= lastWeekStart && order.createdAt < weekStart;
+      default:
+        return true;
     }
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
-      return order.createdAt >= start && order.createdAt <= end;
-    }
-    return true;
   };
 
   const filteredOrders = demoOrders
     .filter(order => order.type === activeTab)
-    .filter(order => filterByDateRange(order))
+    .filter(order => filterByPeriod(order))
     .filter(order => 
       order.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.details.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -102,13 +107,11 @@ export default function Orders() {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Заголовок */}
       <div>
         <h1 className="text-2xl font-bold text-white font-mono">Ордеры</h1>
         <p className="text-gray-500 text-sm mt-1">Все входящие и исходящие транзакции</p>
       </div>
 
-      {/* Вкладки Входящие / Исходящие */}
       <div className="flex gap-2 border-b border-gray-800">
         <button
           onClick={() => setActiveTab("incoming")}
@@ -124,20 +127,22 @@ export default function Orders() {
         </button>
       </div>
 
-      {/* Фильтры и поиск */}
       <div className="flex flex-wrap gap-3 justify-between items-center">
-        <div className="flex items-center gap-2">
-          <CalendarIcon className="w-4 h-4 text-gray-500" />
-          <DatePicker
-            selectsRange={true}
-            startDate={startDate}
-            endDate={endDate}
-            onChange={(update) => setDateRange(update as [Date | null, Date | null])}
-            placeholderText="Выберите период"
-            className="px-3 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg text-white text-sm w-64 cursor-pointer focus:outline-none focus:border-[#D4AF37]"
-            dateFormat="dd.MM.yyyy"
-            isClearable={true}
-          />
+        <div className="flex gap-2">
+          {[
+            { value: "today", label: "Сегодня" },
+            { value: "yesterday", label: "Вчера" },
+            { value: "week", label: "Неделя" },
+            { value: "lastWeek", label: "Прошлая неделя" },
+          ].map((p) => (
+            <button
+              key={p.value}
+              onClick={() => setPeriod(p.value as any)}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${period === p.value ? "bg-[#D4AF37] text-black" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
         
         <div className="relative">
@@ -152,7 +157,6 @@ export default function Orders() {
         </div>
       </div>
 
-      {/* Список заказов */}
       <div className="space-y-2">
         {filteredOrders.length === 0 ? (
           <div className="text-center py-12">
@@ -199,7 +203,6 @@ export default function Orders() {
         )}
       </div>
 
-      {/* Детальная карточка заказа */}
       {showDetails && selectedOrder && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowDetails(false)}>
           <div className="bg-[#0f0f0f] rounded-2xl p-6 w-full max-w-md border border-[#D4AF37]/20" onClick={e => e.stopPropagation()}>
