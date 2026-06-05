@@ -1,7 +1,7 @@
 import { Route, Switch, useLocation } from "wouter";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
-import History from "@/pages/History";
+import Orders from "@/pages/Orders";
 import MyCards from "@/pages/MyCards";
 import Settings from "@/pages/Settings";
 import Support from "@/pages/Support";
@@ -41,7 +41,7 @@ export default function App() {
       <Switch>
         <Route path="/" component={Login} />
         <Route path="/dashboard"   component={() => <PrivateRoute component={Dashboard} />} />
-        <Route path="/history"     component={() => <PrivateRoute component={History} />} />
+        <Route path="/orders"      component={() => <PrivateRoute component={Orders} />} />
         <Route path="/cards"       component={() => <PrivateRoute component={MyCards} />} />
         <Route path="/settings"    component={() => <PrivateRoute component={Settings} />} />
         <Route path="/support"     component={() => <PrivateRoute component={Support} />} />
