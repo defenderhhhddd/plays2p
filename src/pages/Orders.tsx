@@ -2,7 +2,7 @@ import { useState } from "react";
 import { 
   Search, Filter, ChevronDown, ChevronUp, 
   Clock, CheckCircle, XCircle, AlertCircle,
-  Eye, ArrowUpRight, ArrowDownLeft, Calendar as CalendarIcon
+  Eye, ArrowUpRight, ArrowDownLeft, Download
 } from "lucide-react";
 
 interface Order {
@@ -44,19 +44,13 @@ export default function Orders() {
     weekStart.setDate(weekStart.getDate() - 7);
     const lastWeekStart = new Date(weekStart);
     lastWeekStart.setDate(lastWeekStart.getDate() - 7);
-    const lastWeekEnd = weekStart;
 
     switch(period) {
-      case "today":
-        return order.createdAt >= today;
-      case "yesterday":
-        return order.createdAt >= yesterday && order.createdAt < today;
-      case "week":
-        return order.createdAt >= weekStart;
-      case "lastWeek":
-        return order.createdAt >= lastWeekStart && order.createdAt < weekStart;
-      default:
-        return true;
+      case "today": return order.createdAt >= today;
+      case "yesterday": return order.createdAt >= yesterday && order.createdAt < today;
+      case "week": return order.createdAt >= weekStart;
+      case "lastWeek": return order.createdAt >= lastWeekStart && order.createdAt < weekStart;
+      default: return true;
     }
   };
 
@@ -68,6 +62,35 @@ export default function Orders() {
       order.details.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (order.customerName && order.customerName.toLowerCase().includes(searchQuery.toLowerCase()))
     );
+
+  // Экспорт в CSV
+  const exportToCSV = () => {
+    const headers = ["ID заказа", "Тип", "Сумма", "Валюта", "Статус", "Метод", "Реквизит", "Плательщик", "Дата создания", "Дата подтверждения"];
+    
+    const rows = filteredOrders.map(order => [
+      order.orderId,
+      order.type === "incoming" ? "Входящий" : "Исходящий",
+      order.amount.toString(),
+      order.currency,
+      order.status === "pending" ? "Ожидание" : order.status === "confirmed" ? "Подтверждён" : "Отклонён",
+      order.method,
+      order.details,
+      order.customerName || "",
+      order.createdAt.toLocaleString(),
+      order.confirmedAt?.toLocaleString() || ""
+    ]);
+
+    const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `orders_${activeTab}_${period}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   const getStatusIcon = (status: string) => {
     switch(status) {
@@ -107,9 +130,18 @@ export default function Orders() {
 
   return (
     <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white font-mono">Ордеры</h1>
-        <p className="text-gray-500 text-sm mt-1">Все входящие и исходящие транзакции</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-white font-mono">Ордеры</h1>
+          <p className="text-gray-500 text-sm mt-1">Все входящие и исходящие транзакции</p>
+        </div>
+        <button
+          onClick={exportToCSV}
+          className="flex items-center gap-2 px-4 py-2 bg-[#D4AF37] text-black rounded-lg font-bold hover:bg-[#c4a030] transition-colors"
+        >
+          <Download className="w-4 h-4" />
+          Скачать CSV
+        </button>
       </div>
 
       <div className="flex gap-2 border-b border-gray-800">
