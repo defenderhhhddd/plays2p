@@ -13,6 +13,7 @@ import AuditLogs from "@/pages/AuditLogs";
 import Reports from "@/pages/Reports";
 import Exchange from "@/pages/Exchange";
 import Wallet from "@/pages/Wallet";
+import Disputes from "@/pages/Disputes";
 import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 
@@ -53,6 +54,7 @@ export default function App() {
         <Route path="/reports"     component={() => <PrivateRoute component={Reports} />} />
         <Route path="/exchange"    component={() => <PrivateRoute component={Exchange} />} />
         <Route path="/wallet"      component={() => <PrivateRoute component={Wallet} />} />
+        <Route path="/disputes"    component={() => <PrivateRoute component={Disputes} />} />
         <Route path="/admin"           component={AdminLogin} />
         <Route path="/admin/dashboard" component={() => <AdminRoute component={AdminDashboard} />} />
       </Switch>
