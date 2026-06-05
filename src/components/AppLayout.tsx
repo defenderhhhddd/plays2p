@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  LayoutDashboard, CreditCard, History, Settings, LogOut,
-  MessageCircle, HelpCircle, User, Key, Shield,
-  FileText, Globe, Wallet, ChevronDown, ChevronRight
+  LayoutDashboard, Receipt, AlertTriangle, Wallet, CreditCard,
+  MessageCircle, HelpCircle, Settings, LogOut, Key, Shield,
+  Users, Bell, Download, Smartphone, Globe, FileText
 } from "lucide-react";
 
 interface MenuItem {
@@ -15,62 +15,41 @@ interface MenuItem {
 
 interface Section {
   title: string;
-  collapsible: boolean;
   items: MenuItem[];
 }
 
-const sections: Section[] = [
-  {
-    title: "Главное",
-    collapsible: false,
-    items: [
-      { name: "Дашборд", href: "/dashboard", icon: LayoutDashboard },
-      { name: "Мои карты", href: "/cards", icon: CreditCard },
-      { name: "История заказов", href: "/history", icon: History },
-    ],
-  },
-  {
-    title: "Поддержка",
-    collapsible: true,
-    items: [
-      { name: "Чат поддержки", href: "/support", icon: MessageCircle, badge: "Online" },
-      { name: "FAQ", href: "/faq", icon: HelpCircle },
-    ],
-  },
-  {
-    title: "Настройки",
-    collapsible: true,
-    items: [
-      { name: "Профиль", href: "/profile", icon: User },
-      { name: "API ключи", href: "/api-keys", icon: Key },
-      { name: "Безопасность", href: "/security", icon: Shield },
-    ],
-  },
-  {
-    title: "Дополнительно",
-    collapsible: true,
-    items: [
-      { name: "Логи аудита", href: "/logs", icon: FileText },
-      { name: "Отчёты", href: "/reports", icon: FileText },
-      { name: "Обмен", href: "/exchange", icon: Globe },
-      { name: "Кошелёк", href: "/wallet", icon: Wallet },
-    ],
-  },
+// Порядок и названия как в Payscrow
+const menuItems: MenuItem[] = [
+  { name: "Главная", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Ордеры", href: "/orders", icon: Receipt },
+  { name: "Апелляции", href: "/disputes", icon: AlertTriangle },
+  { name: "Баланс", href: "/wallet", icon: Wallet },
+  { name: "Реквизиты", href: "/cards", icon: CreditCard },
+  { name: "Уведомления и СМС", href: "/notifications", icon: Bell },
+  { name: "Поддержка", href: "/support", icon: MessageCircle },
+  { name: "Терминалы", href: "/terminals", icon: Smartphone },
+  { name: "Устройства", href: "/devices", icon: Users },
+  { name: "Скачать APK", href: "/download-apk", icon: Download },
+  { name: "API ключи", href: "/api-keys", icon: Key },
+  { name: "Безопасность", href: "/security", icon: Shield },
+  { name: "Логи аудита", href: "/logs", icon: FileText },
+  { name: "Отчёты", href: "/reports", icon: Globe },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
-  const toggleSection = (title: string) => {
-    setCollapsed((prev) => ({ ...prev, [title]: !prev[title] }));
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("traderToken");
-    localStorage.removeItem("traderId");
-    localStorage.removeItem("traderName");
-    window.location.href = "/";
+  const handleLogout = async () => {
+    // Удаляем сессию на сервере
+    const sessionToken = localStorage.getItem("sessionToken");
+    if (sessionToken) {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-session-token": sessionToken }
+      });
+    }
+    localStorage.clear();
+    window.location.href = "/login?secret=kitchen";
   };
 
   return (
@@ -83,52 +62,27 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-4 scrollbar-gold">
-          {sections.map((section) => {
-            const isOpen = !section.collapsible || !collapsed[section.title];
+        <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-1 scrollbar-gold">
+          {menuItems.map((item) => {
+            const isActive = location === item.href;
             return (
-              <div key={section.title}>
-                {section.collapsible ? (
-                  <button
-                    onClick={() => toggleSection(section.title)}
-                    className="flex items-center justify-between w-full px-2 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-300 transition-colors"
-                  >
-                    {section.title}
-                    {isOpen
-                      ? <ChevronDown className="w-3.5 h-3.5" />
-                      : <ChevronRight className="w-3.5 h-3.5" />}
-                  </button>
-                ) : (
-                  <p className="px-2 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    {section.title}
-                  </p>
-                )}
-
-                <div className={`space-y-0.5 overflow-hidden transition-all duration-200 ${isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"}`}>
-                  {section.items.map((item) => {
-                    const isActive = location === item.href;
-                    return (
-                      <Link key={item.href} href={item.href}>
-                        <div className={`flex items-center justify-between px-3 py-2.5 rounded-lg transition-all cursor-pointer group ${
-                          isActive
-                            ? "bg-[#D4AF37]/10 text-[#D4AF37] border-l-2 border-[#D4AF37]"
-                            : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
-                        }`}>
-                          <div className="flex items-center gap-3">
-                            <item.icon className="w-4 h-4 flex-shrink-0" />
-                            <span className="text-sm">{item.name}</span>
-                          </div>
-                          {item.badge && (
-                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#D4AF37]">
-                              {item.badge}
-                            </span>
-                          )}
-                        </div>
-                      </Link>
-                    );
-                  })}
+              <Link key={item.href} href={item.href}>
+                <div className={`flex items-center justify-between px-3 py-2.5 rounded-lg transition-all cursor-pointer group ${
+                  isActive
+                    ? "bg-[#D4AF37]/10 text-[#D4AF37] border-l-2 border-[#D4AF37]"
+                    : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <item.icon className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-sm">{item.name}</span>
+                  </div>
+                  {item.badge && (
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#D4AF37]">
+                      {item.badge}
+                    </span>
+                  )}
                 </div>
-              </div>
+              </Link>
             );
           })}
         </nav>
