@@ -15,6 +15,7 @@ import Exchange from "@/pages/Exchange";
 import Wallet from "@/pages/Wallet";
 import Disputes from "@/pages/Disputes";
 import Notifications from "@/pages/Notifications";
+import Terminals from "@/pages/Terminals";
 import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 
@@ -57,6 +58,7 @@ export default function App() {
         <Route path="/wallet"      component={() => <PrivateRoute component={Wallet} />} />
         <Route path="/disputes"    component={() => <PrivateRoute component={Disputes} />} />
         <Route path="/notifications" component={() => <PrivateRoute component={Notifications} />} />
+        <Route path="/terminals"   component={() => <PrivateRoute component={Terminals} />} />
         <Route path="/admin"           component={AdminLogin} />
         <Route path="/admin/dashboard" component={() => <AdminRoute component={AdminDashboard} />} />
       </Switch>
