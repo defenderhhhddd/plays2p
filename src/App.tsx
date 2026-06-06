@@ -19,6 +19,7 @@ import Terminals from "@/pages/Terminals";
 import Devices from "@/pages/Devices";
 import DownloadApk from "@/pages/DownloadApk";
 import PaymentMethods from "@/pages/PaymentMethods";
+import Counterparties from "@/pages/Counterparties";
 import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 
@@ -65,6 +66,7 @@ export default function App() {
         <Route path="/devices"     component={() => <PrivateRoute component={Devices} />} />
         <Route path="/download-apk" component={() => <PrivateRoute component={DownloadApk} />} />
         <Route path="/payment-methods" component={() => <PrivateRoute component={PaymentMethods} />} />
+        <Route path="/counterparties" component={() => <PrivateRoute component={Counterparties} />} />
         <Route path="/admin"           component={AdminLogin} />
         <Route path="/admin/dashboard" component={() => <AdminRoute component={AdminDashboard} />} />
       </Switch>
