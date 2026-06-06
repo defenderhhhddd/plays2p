@@ -1,332 +1,236 @@
-import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
-import { Users, TrendingUp, CreditCard, Activity, Plus, LogOut, ToggleLeft, ToggleRight, Copy, Check } from "lucide-react";
+import { useState } from "react";
+import { 
+  Users, CreditCard, TrendingUp, AlertTriangle, 
+  Eye, Lock, Unlock, Edit2, Trash2, Search,
+  Download, Calendar, CheckCircle, XCircle, Clock,
+  DollarSign, BarChart3, PieChart, Settings, Shield,
+  Mail, Server, Ban, Activity, Database, Paintbrush, 
+  FileUp, Percent, Timer, Key, MessageSquare, 
+  Bookmark, Flask, History, Zap
+} from "lucide-react";
 
-interface Trader {
-  id: number;
-  name: string;
-  token: string;
-  is_active: boolean;
-  profit_percent: number;
-  balance: number;
-  created_at: string;
-  order_count: number;
-  today_volume: number;
-}
+// Демо-данные
+const demoUsers = [
+  { id: 1, name: "Трейдер #1", email: "trader1@example.com", token: "tr_abc123", balance: 125000, commission: 5, isActive: true, totalOrders: 45, totalVolume: 1250000, disputes: 2, notes: "Надёжный трейдер", blockedUntil: null },
+  { id: 2, name: "Трейдер #2", email: "trader2@example.com", token: "tr_def456", balance: 87000, commission: 5, isActive: true, totalOrders: 28, totalVolume: 870000, disputes: 1, notes: "", blockedUntil: null },
+  { id: 3, name: "Трейдер #3", email: "trader3@example.com", token: "tr_ghi789", balance: 0, commission: 5, isActive: false, totalOrders: 0, totalVolume: 0, disputes: 0, notes: "Нарушал правила", blockedUntil: null },
+];
 
-interface PlatformStats {
-  total_traders: number;
-  active_traders: number;
-  today_volume: number;
-  today_orders: number;
-}
+const demoDisputes = [
+  { id: 1, orderId: "P2P-ABC123", amount: 15000, traderName: "Трейдер #1", customerName: "Алексей", status: "pending", createdAt: new Date(2026, 5, 6, 14, 30), timeLeft: 1200 },
+  { id: 2, orderId: "P2P-DEF456", amount: 8500, traderName: "Трейдер #2", customerName: "Мария", status: "pending", createdAt: new Date(2026, 5, 6, 13, 15), timeLeft: 900 },
+];
 
-interface Order {
-  id: number;
-  order_id: string;
-  trader_name: string;
-  amount: number;
-  customer_name: string | null;
-  card_bank: string;
-  card_last4: string;
-  status: string;
-  created_at: string;
-}
-
-function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: string; color: string }) {
-  return (
-    <div className="bg-[#0f0f0f] border border-gray-800 rounded-xl p-5">
-      <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${color}`}>
-        <Icon className="w-5 h-5 text-white" />
-      </div>
-      <p className="text-gray-500 text-xs mb-1">{label}</p>
-      <p className="text-white font-mono font-bold text-xl">{value}</p>
-    </div>
-  );
-}
-
-function CopyToken({ token }: { token: string }) {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = () => {
-    navigator.clipboard.writeText(token);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-  return (
-    <button onClick={handleCopy} className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors">
-      <span className="font-mono text-xs">{token.slice(0, 18)}…</span>
-      {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-    </button>
-  );
-}
+const demoIpBlacklist = ["192.168.1.100", "10.0.0.50"];
+const demoAdminActions = [
+  { id: 1, admin: "admin@players2pay.com", action: "Заблокировал трейдера #2", createdAt: new Date(2026, 5, 6, 14, 0) },
+  { id: 2, admin: "admin@players2pay.com", action: "Изменил комиссию трейдера #1 на 5%", createdAt: new Date(2026, 5, 5, 12, 30) },
+];
 
 export default function AdminDashboard() {
-  const [, setLocation] = useLocation();
-  const adminToken = localStorage.getItem("adminToken") || "";
-  const adminName = localStorage.getItem("adminName") || "Admin";
+  const [activeTab, setActiveTab] = useState<"traders" | "disputes" | "analytics" | "settings" | "logs">("traders");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTrader, setSelectedTrader] = useState<any>(null);
+  const [showTraderModal, setShowTraderModal] = useState(false);
+  const [testMode, setTestMode] = useState(false);
+  const [theme, setTheme] = useState("#D4AF37");
+  const [ipBlacklist, setIpBlacklist] = useState(demoIpBlacklist);
+  const [newIp, setNewIp] = useState("");
+  const [massMessage, setMassMessage] = useState("");
+  const [quickActionMessage, setQuickActionMessage] = useState("");
+  const [tempBlockHours, setTempBlockHours] = useState(24);
 
-  const [traders, setTraders] = useState<Trader[]>([]);
-  const [stats, setStats] = useState<PlatformStats | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [tab, setTab] = useState<"traders" | "orders">("traders");
-  const [showCreate, setShowCreate] = useState(false);
-  const [newTrader, setNewTrader] = useState({ name: "", profit_percent: "5" });
-  const [creating, setCreating] = useState(false);
-  const [createdToken, setCreatedToken] = useState<string | null>(null);
+  const filteredTraders = demoUsers.filter(t =>
+    t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    t.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    t.token.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-  const headers = { "Content-Type": "application/json", "x-admin-token": adminToken };
+  const toggleTraderStatus = (id: number) => alert(`Статус трейдера ${id} изменён`);
+  const resolveDispute = (id: number, inFavorOf: "trader" | "client") => alert(`Спор ${id} решён в пользу ${inFavorOf}`);
+  const exportToCSV = () => alert("Экспорт в CSV выполнен");
+  const backupDatabase = () => alert("Бэкап базы данных скачан");
+  const importTradersCSV = () => alert("Импорт трейдеров из CSV (выберите файл)");
+  const sendMassMessage = () => alert(`Сообщение отправлено всем трейдерам: ${massMessage}`);
+  const sendQuickAction = () => alert(`Быстрое действие: ${quickActionMessage}`);
+  const addIpToBlacklist = () => { if (newIp) setIpBlacklist([...ipBlacklist, newIp]); setNewIp(""); };
+  const removeIpFromBlacklist = (ip: string) => setIpBlacklist(ipBlacklist.filter(i => i !== ip));
 
-  const fetchAll = async () => {
-    const [tRes, sRes, oRes] = await Promise.all([
-      fetch("/api/admin/traders", { headers }),
-      fetch("/api/admin/stats", { headers }),
-      fetch("/api/admin/orders", { headers }),
-    ]);
-    if (tRes.ok) setTraders(await tRes.json());
-    if (sRes.ok) setStats(await sRes.json());
-    if (oRes.ok) setOrders(await oRes.json());
-  };
-
-  useEffect(() => {
-    if (!adminToken) { setLocation("/admin"); return; }
-    fetchAll();
-    const iv = setInterval(fetchAll, 15000);
-    return () => clearInterval(iv);
-  }, []);
-
-  const toggleTrader = async (id: number, current: boolean) => {
-    await fetch(`/api/admin/traders/${id}/toggle`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ is_active: !current }),
-    });
-    fetchAll();
-  };
-
-  const createTrader = async () => {
-    if (!newTrader.name.trim()) return;
-    setCreating(true);
-    const res = await fetch("/api/admin/traders", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ name: newTrader.name, profit_percent: parseFloat(newTrader.profit_percent) }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setCreatedToken(data.token);
-      setNewTrader({ name: "", profit_percent: "5" });
-      fetchAll();
-    }
-    setCreating(false);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("adminToken");
-    localStorage.removeItem("adminName");
-    setLocation("/admin");
+  const stats = {
+    totalTraders: demoUsers.length,
+    activeTraders: demoUsers.filter(u => u.isActive).length,
+    totalVolume: demoUsers.reduce((sum, u) => sum + u.totalVolume, 0),
+    totalDisputes: demoDisputes.length,
+    pendingDisputes: demoDisputes.filter(d => d.status === "pending").length,
+    totalCommission: demoUsers.reduce((sum, u) => sum + (u.totalVolume * (u.commission / 100)), 0),
   };
 
   return (
-    <div className="min-h-screen bg-black">
-      {/* Top nav */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-gray-800 bg-black/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-red-600 rounded-md flex items-center justify-center">
-            <span className="text-white text-xs font-bold">A</span>
-          </div>
-          <span className="text-white font-bold tracking-wider font-mono text-sm">
-            PLAYERS<span className="text-red-500">2</span>PAY <span className="text-gray-500 font-normal">/ Admin</span>
-          </span>
+    <div className="space-y-6 p-6">
+      {/* Заголовок с быстрыми действиями */}
+      <div className="flex justify-between items-center flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white font-mono flex items-center gap-2">
+            <Shield className="w-6 h-6 text-[#D4AF37]" />
+            Админ-панель
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">Управление платформой, трейдерами и спорами</p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-gray-400 text-sm hidden md:inline">{adminName}</span>
-          <button onClick={handleLogout} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-all text-sm">
-            <LogOut className="w-4 h-4" />
-            Выйти
+        <div className="flex gap-2">
+          <button onClick={() => setTestMode(!testMode)} className={`px-3 py-2 rounded-lg text-sm flex items-center gap-2 ${testMode ? "bg-yellow-500/20 text-yellow-500" : "bg-gray-800 text-gray-400"}`}>
+            <Flask className="w-4 h-4" />
+            {testMode ? "Тестовый режим" : "Режим"}
+          </button>
+          <button onClick={backupDatabase} className="px-3 py-2 bg-gray-800 rounded-lg text-sm flex items-center gap-2 hover:bg-gray-700">
+            <Database className="w-4 h-4" />
+            Бэкап
+          </button>
+          <button onClick={exportToCSV} className="px-3 py-2 bg-[#D4AF37] text-black rounded-lg text-sm flex items-center gap-2">
+            <Download className="w-4 h-4" />
+            Экспорт
           </button>
         </div>
       </div>
 
-      <div className="p-6 space-y-6">
-        {/* Stats */}
-        {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard icon={Users} label="Всего трейдеров" value={String(stats.total_traders)} color="bg-blue-600" />
-            <StatCard icon={Activity} label="Активных" value={String(stats.active_traders)} color="bg-green-600" />
-            <StatCard icon={TrendingUp} label="Оборот сегодня" value={`$${Number(stats.today_volume).toFixed(2)}`} color="bg-[#D4AF37]" />
-            <StatCard icon={CreditCard} label="Заказов сегодня" value={String(stats.today_orders)} color="bg-purple-600" />
-          </div>
-        )}
+      {/* Статистика */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+        <StatCard title="Трейдеров" value={stats.totalTraders} sub={`Актив: ${stats.activeTraders}`} icon={<Users className="w-5 h-5" />} />
+        <StatCard title="Оборот" value={`${(stats.totalVolume / 1000).toFixed(0)}K ₽`} sub={`≈ ${(stats.totalVolume / 90).toFixed(0)} USDT`} icon={<TrendingUp className="w-5 h-5" />} />
+        <StatCard title="Комиссия" value={`${(stats.totalCommission / 1000).toFixed(0)}K ₽`} sub="Всего" icon={<DollarSign className="w-5 h-5" />} />
+        <StatCard title="Споры" value={stats.totalDisputes} sub={`Актив: ${stats.pendingDisputes}`} icon={<AlertTriangle className="w-5 h-5" />} />
+        <StatCard title="Загрузка CPU" value="23%" sub="Сервер" icon={<Server className="w-5 h-5" />} />
+        <StatCard title="RAM" value="1.2/4 GB" sub="Сервер" icon={<Activity className="w-5 h-5" />} />
+        <StatCard title="Топ страна" value="Россия" sub="73% платежей" icon={<PieChart className="w-5 h-5" />} />
+        <StatCard title="Сегодня" value={`+12`} sub="новых трейдеров" icon={<Calendar className="w-5 h-5" />} />
+      </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 border-b border-gray-800">
-          {(["traders", "orders"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-2.5 text-sm font-medium transition-colors ${
-                tab === t ? "text-white border-b-2 border-[#D4AF37]" : "text-gray-500 hover:text-gray-300"
-              }`}
-            >
-              {t === "traders" ? `Трейдеры (${traders.length})` : `Активные заказы (${orders.length})`}
-            </button>
-          ))}
-        </div>
+      {/* Вкладки */}
+      <div className="flex gap-2 border-b border-gray-800 flex-wrap">
+        {["traders", "disputes", "analytics", "settings", "logs"].map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-4 py-2 text-sm font-medium transition-all capitalize ${activeTab === tab ? "text-[#D4AF37] border-b-2 border-[#D4AF37]" : "text-gray-500 hover:text-gray-300"}`}>
+            {tab === "traders" && "Трейдеры"}
+            {tab === "disputes" && "Споры"}
+            {tab === "analytics" && "Аналитика"}
+            {tab === "settings" && "Настройки"}
+            {tab === "logs" && "Логи"}
+          </button>
+        ))}
+      </div>
 
-        {/* Traders tab */}
-        {tab === "traders" && (
-          <div className="space-y-4">
-            <div className="flex justify-end">
-              <button
-                onClick={() => { setShowCreate(true); setCreatedToken(null); }}
-                className="flex items-center gap-2 px-4 py-2 bg-[#D4AF37] text-black rounded-lg font-medium hover:bg-[#c4a030] transition-all text-sm"
-              >
-                <Plus className="w-4 h-4" /> Создать трейдера
-              </button>
+      {/* Вкладка: Трейдеры */}
+      {activeTab === "traders" && (
+        <div>
+          <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Поиск..." className="w-full pl-9 pr-4 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg text-white" />
             </div>
+            <div className="flex gap-2">
+              <button onClick={importTradersCSV} className="px-3 py-2 bg-gray-800 rounded-lg text-sm flex items-center gap-2"><FileUp className="w-4 h-4" /> Импорт CSV</button>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {filteredTraders.map(trader => (
+              <div key={trader.id} className="bg-[#0f0f0f] rounded-xl border border-gray-800 p-4">
+                <div className="flex justify-between items-start flex-wrap gap-3">
+                  <div><h3 className="text-white font-medium">{trader.name}</h3><p className="text-gray-500 text-xs">{trader.email} • {trader.token}</p></div>
+                  <div className="flex gap-2">
+                    <button onClick={() => toggleTraderStatus(trader.id)} className={`px-2 py-1 text-[10px] rounded ${trader.isActive ? "bg-green-500/20 text-green-500" : "bg-red-500/20 text-red-500"}`}>{trader.isActive ? "Активен" : "Заблокирован"}</button>
+                    <button onClick={() => { setSelectedTrader(trader); setShowTraderModal(true); }} className="p-1.5 rounded-lg hover:bg-gray-700"><Eye className="w-4 h-4 text-gray-500" /></button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 gap-3 mt-3 text-xs">
+                  <div className="bg-black/40 p-2 rounded"><p className="text-gray-500">Баланс</p><p className="text-white">{trader.balance.toLocaleString()} ₽</p></div>
+                  <div className="bg-black/40 p-2 rounded"><p className="text-gray-500">Комиссия</p><p className="text-white">{trader.commission}%</p></div>
+                  <div className="bg-black/40 p-2 rounded"><p className="text-gray-500">Оборот</p><p className="text-white">{trader.totalVolume.toLocaleString()} ₽</p></div>
+                  <div className="bg-black/40 p-2 rounded"><p className="text-gray-500">Споры</p><p className="text-white">{trader.disputes}</p></div>
+                </div>
+                {trader.notes && <p className="text-xs text-gray-500 mt-2">📝 {trader.notes}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-            {/* Create modal */}
-            {showCreate && (
-              <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={() => setShowCreate(false)}>
-                <div className="bg-[#0f0f0f] border border-gray-800 rounded-2xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-                  <h2 className="text-lg font-bold text-white mb-4">Новый трейдер</h2>
-
-                  {createdToken ? (
-                    <div className="space-y-4">
-                      <p className="text-green-400 text-sm">Трейдер создан! Сохраните токен:</p>
-                      <div className="bg-[#1a1a1a] border border-[#D4AF37]/30 rounded-lg p-3 font-mono text-[#D4AF37] text-sm break-all">{createdToken}</div>
-                      <button
-                        onClick={() => { navigator.clipboard.writeText(createdToken); }}
-                        className="w-full py-2 border border-gray-700 rounded-lg text-gray-400 hover:text-white text-sm transition-colors"
-                      >
-                        Копировать токен
-                      </button>
-                      <button onClick={() => setShowCreate(false)} className="w-full py-2 bg-[#D4AF37] text-black rounded-lg font-medium text-sm">Закрыть</button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <input
-                        placeholder="Имя трейдера"
-                        value={newTrader.name}
-                        onChange={(e) => setNewTrader({ ...newTrader, name: e.target.value })}
-                        className="w-full p-3 bg-[#1a1a1a] border border-gray-700 rounded-lg text-white placeholder:text-gray-600 focus:outline-none focus:border-[#D4AF37] transition-colors"
-                      />
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="number"
-                          placeholder="% прибыли"
-                          value={newTrader.profit_percent}
-                          onChange={(e) => setNewTrader({ ...newTrader, profit_percent: e.target.value })}
-                          className="flex-1 p-3 bg-[#1a1a1a] border border-gray-700 rounded-lg text-white focus:outline-none focus:border-[#D4AF37] transition-colors"
-                        />
-                        <span className="text-gray-500 text-sm">% комиссия</span>
-                      </div>
-                      <button
-                        onClick={createTrader}
-                        disabled={creating}
-                        className="w-full py-3 bg-[#D4AF37] text-black rounded-lg font-bold disabled:opacity-50"
-                      >
-                        {creating ? "Создание..." : "Создать"}
-                      </button>
-                    </div>
-                  )}
+      {/* Вкладка: Споры */}
+      {activeTab === "disputes" && (
+        <div className="space-y-3">
+          {demoDisputes.map(dispute => (
+            <div key={dispute.id} className="bg-[#0f0f0f] rounded-xl border border-gray-800 p-4">
+              <div className="flex justify-between items-start flex-wrap gap-3">
+                <div><p className="text-white font-mono">{dispute.orderId}</p><p className="text-gray-500 text-xs">{dispute.traderName} • {dispute.customerName} • {dispute.amount.toLocaleString()} ₽</p></div>
+                <div className="flex gap-2">
+                  <button onClick={() => resolveDispute(dispute.id, "client")} className="px-3 py-1 text-xs bg-red-500/20 text-red-500 rounded">В пользу клиента</button>
+                  <button onClick={() => resolveDispute(dispute.id, "trader")} className="px-3 py-1 text-xs bg-green-500/20 text-green-500 rounded">В пользу трейдера</button>
                 </div>
               </div>
-            )}
+            </div>
+          ))}
+        </div>
+      )}
 
-            {/* Traders table */}
-            <div className="bg-[#0f0f0f] border border-gray-800 rounded-xl overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-800 text-left text-gray-400 text-xs uppercase tracking-wider">
-                    <th className="px-4 py-3">Трейдер</th>
-                    <th className="px-4 py-3">Токен</th>
-                    <th className="px-4 py-3">Комиссия</th>
-                    <th className="px-4 py-3">Оборот (сегодня)</th>
-                    <th className="px-4 py-3">Заказов</th>
-                    <th className="px-4 py-3">Баланс</th>
-                    <th className="px-4 py-3">Статус</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {traders.map((trader) => (
-                    <tr key={trader.id} className="border-b border-gray-800/50 hover:bg-gray-800/20 transition-colors">
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#D4AF37] to-[#8B6914] flex items-center justify-center text-black text-xs font-bold">
-                            {trader.name[0]?.toUpperCase()}
-                          </div>
-                          <span className="text-white text-sm font-medium">{trader.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4"><CopyToken token={trader.token} /></td>
-                      <td className="px-4 py-4 text-gray-300 text-sm">{trader.profit_percent}%</td>
-                      <td className="px-4 py-4 text-white font-mono text-sm">${Number(trader.today_volume || 0).toFixed(2)}</td>
-                      <td className="px-4 py-4 text-gray-300 text-sm">{trader.order_count || 0}</td>
-                      <td className="px-4 py-4 text-[#D4AF37] font-mono text-sm">${Number(trader.balance).toFixed(2)}</td>
-                      <td className="px-4 py-4">
-                        <button onClick={() => toggleTrader(trader.id, trader.is_active)} className="transition-colors">
-                          {trader.is_active
-                            ? <ToggleRight className="w-7 h-7 text-green-500" />
-                            : <ToggleLeft className="w-7 h-7 text-gray-600" />}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {traders.length === 0 && (
-                    <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-500 text-sm">Нет трейдеров</td></tr>
-                  )}
-                </tbody>
-              </table>
+      {/* Вкладка: Аналитика */}
+      {activeTab === "analytics" && (
+        <div className="grid md:grid-cols-2 gap-6">
+          <div className="bg-[#0f0f0f] rounded-xl p-4 border border-gray-800"><h3 className="text-white font-medium mb-2">📊 Оборот по дням</h3><div className="h-32 flex items-center justify-center text-gray-500 text-sm">[График]</div></div>
+          <div className="bg-[#0f0f0f] rounded-xl p-4 border border-gray-800"><h3 className="text-white font-medium mb-2">🥧 Страны плательщиков</h3><div className="h-32 flex items-center justify-center text-gray-500 text-sm">Россия 73% • Таджикистан 12% • Узбекистан 8% • Другие 7%</div></div>
+          <div className="bg-[#0f0f0f] rounded-xl p-4 border border-gray-800"><h3 className="text-white font-medium mb-2">📈 Сравнение периодов</h3><div className="h-32 flex items-center justify-center text-gray-500 text-sm">[График сравнения]</div></div>
+          <div className="bg-[#0f0f0f] rounded-xl p-4 border border-gray-800"><h3 className="text-white font-medium mb-2">🏆 Топ трейдеров по обороту</h3><ol className="text-sm text-gray-300 space-y-1"><li>1. Трейдер #1 — 1 250 000 ₽</li><li>2. Трейдер #2 — 870 000 ₽</li></ol></div>
+        </div>
+      )}
+
+      {/* Вкладка: Настройки */}
+      {activeTab === "settings" && (
+        <div className="space-y-4">
+          <div className="bg-[#0f0f0f] rounded-xl p-4 border border-gray-800"><h3 className="text-white font-medium mb-2">🎨 White Label</h3><div className="flex items-center gap-3"><input type="color" value={theme} onChange={(e) => setTheme(e.target.value)} className="w-10 h-10 rounded border border-gray-700" /><span className="text-white">Основной цвет: {theme}</span><button onClick={() => alert("Логотип загружен")} className="px-3 py-1 bg-gray-800 rounded text-sm">Загрузить логотип</button></div></div>
+          <div className="bg-[#0f0f0f] rounded-xl p-4 border border-gray-800"><h3 className="text-white font-medium mb-2">🚫 Чёрный список IP</h3><div className="flex gap-2 mb-2"><input type="text" value={newIp} onChange={(e) => setNewIp(e.target.value)} placeholder="IP адрес" className="flex-1 px-3 py-1 bg-gray-900 border border-gray-700 rounded" /><button onClick={addIpToBlacklist} className="px-3 py-1 bg-[#D4AF37] text-black rounded">Добавить</button></div><div className="space-y-1">{ipBlacklist.map(ip => <div key={ip} className="flex justify-between items-center"><span className="text-gray-300">{ip}</span><button onClick={() => removeIpFromBlacklist(ip)} className="text-red-500 text-xs">Удалить</button></div>)}</div></div>
+          <div className="bg-[#0f0f0f] rounded-xl p-4 border border-gray-800"><h3 className="text-white font-medium mb-2">📧 Массовая рассылка</h3><textarea value={massMessage} onChange={(e) => setMassMessage(e.target.value)} placeholder="Сообщение для всех трейдеров..." className="w-full p-2 bg-gray-900 border border-gray-700 rounded text-white text-sm" rows={2} /><button onClick={sendMassMessage} className="mt-2 px-4 py-1 bg-[#D4AF37] text-black rounded text-sm">Отправить</button></div>
+          <div className="bg-[#0f0f0f] rounded-xl p-4 border border-gray-800"><h3 className="text-white font-medium mb-2">⚡ Quick Actions</h3><div className="flex gap-2 flex-wrap"><button onClick={() => sendQuickAction()} className="px-3 py-1 bg-red-500/20 text-red-500 rounded text-sm">Отключить трафик всем</button><button onClick={() => sendQuickAction()} className="px-3 py-1 bg-yellow-500/20 text-yellow-500 rounded text-sm">Разослать предупреждение</button><button onClick={() => alert("Установлены комиссии по уровням")} className="px-3 py-1 bg-blue-500/20 text-blue-500 rounded text-sm">Комиссия по уровням</button></div></div>
+          <div className="bg-[#0f0f0f] rounded-xl p-4 border border-gray-800"><h3 className="text-white font-medium mb-2">🔐 2FA Админа</h3><button onClick={() => alert("Настройка 2FA")} className="px-4 py-2 bg-[#D4AF37] text-black rounded text-sm">Подключить Google Authenticator</button></div>
+          <div className="bg-[#0f0f0f] rounded-xl p-4 border border-gray-800"><h3 className="text-white font-medium mb-2">🤖 Telegram-бот</h3><button onClick={() => alert("Настройка Telegram бота")} className="px-4 py-2 bg-[#D4AF37] text-black rounded text-sm">Подключить бота</button></div>
+        </div>
+      )}
+
+      {/* Вкладка: Логи */}
+      {activeTab === "logs" && (
+        <div className="space-y-2">
+          {demoAdminActions.map(log => (
+            <div key={log.id} className="bg-[#0f0f0f] rounded-lg p-3 border border-gray-800 flex justify-between items-center flex-wrap gap-2">
+              <div><p className="text-white text-sm">{log.action}</p><p className="text-gray-500 text-xs">{log.admin}</p></div>
+              <p className="text-gray-500 text-xs">{log.createdAt.toLocaleString()}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Модалка трейдера */}
+      {showTraderModal && selectedTrader && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowTraderModal(false)}>
+          <div className="bg-[#0f0f0f] rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-bold text-white mb-4">{selectedTrader.name}</h2>
+            <div className="space-y-3">
+              <div className="flex justify-between"><span className="text-gray-500">Email:</span><span className="text-white">{selectedTrader.email}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Баланс:</span><span className="text-white">{selectedTrader.balance.toLocaleString()} ₽</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Комиссия:</span><span className="text-white">{selectedTrader.commission}%</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Оборот:</span><span className="text-white">{selectedTrader.totalVolume.toLocaleString()} ₽</span></div>
+              <div className="flex gap-2 mt-4"><button onClick={() => alert(`Изменить комиссию`)} className="flex-1 py-2 bg-gray-800 rounded text-white">Изменить комиссию</button><button onClick={() => alert(`Временная блокировка`)} className="flex-1 py-2 bg-red-500/20 text-red-500 rounded">Блокировка</button></div>
             </div>
           </div>
-        )}
+        </div>
+      )}
+    </div>
+  );
+}
 
-        {/* Orders tab */}
-        {tab === "orders" && (
-          <div className="bg-[#0f0f0f] border border-gray-800 rounded-xl overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-800 text-left text-gray-400 text-xs uppercase tracking-wider">
-                  <th className="px-4 py-3">ID заказа</th>
-                  <th className="px-4 py-3">Трейдер</th>
-                  <th className="px-4 py-3">Сумма</th>
-                  <th className="px-4 py-3">Карта</th>
-                  <th className="px-4 py-3">Клиент</th>
-                  <th className="px-4 py-3">Статус</th>
-                  <th className="px-4 py-3">Время</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orders.map((order) => (
-                  <tr key={order.id} className="border-b border-gray-800/50 hover:bg-gray-800/20 transition-colors">
-                    <td className="px-4 py-4 font-mono text-xs text-gray-400">{order.order_id.slice(0, 12)}…</td>
-                    <td className="px-4 py-4 text-white text-sm">{order.trader_name}</td>
-                    <td className="px-4 py-4 text-white font-mono text-sm">${Number(order.amount).toFixed(2)}</td>
-                    <td className="px-4 py-4">
-                      <span className="text-sm text-gray-300">{order.card_bank}</span>
-                      <span className="text-gray-500 text-xs ml-1">*{order.card_last4}</span>
-                    </td>
-                    <td className="px-4 py-4 text-gray-300 text-sm">{order.customer_name || "—"}</td>
-                    <td className="px-4 py-4">
-                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs bg-yellow-500/20 text-yellow-500">
-                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" />
-                        Ожидание
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 text-gray-500 text-xs">
-                      {new Date(order.created_at).toLocaleTimeString("ru-RU")}
-                    </td>
-                  </tr>
-                ))}
-                {orders.length === 0 && (
-                  <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-500 text-sm">Нет активных заказов</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
+function StatCard({ title, value, sub, icon }: any) {
+  return (
+    <div className="bg-[#0f0f0f] rounded-xl p-3 border border-gray-800">
+      <div className="flex items-center justify-between">
+        <p className="text-gray-500 text-xs">{title}</p>
+        <div className="text-[#D4AF37]">{icon}</div>
       </div>
+      <p className="text-xl font-bold text-white mt-1">{value}</p>
+      <p className="text-gray-500 text-[10px] mt-0.5">{sub}</p>
     </div>
   );
 }
