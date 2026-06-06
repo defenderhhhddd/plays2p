@@ -20,12 +20,20 @@ import Devices from "@/pages/Devices";
 import DownloadApk from "@/pages/DownloadApk";
 import PaymentMethods from "@/pages/PaymentMethods";
 import Counterparties from "@/pages/Counterparties";
+import MerchantLogin from "@/pages/merchant/MerchantLogin";
+import MerchantDashboard from "@/pages/merchant/MerchantDashboard";
 import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 
 function PrivateRoute({ component: Component }: { component: React.ComponentType }) {
   const token = localStorage.getItem("traderToken");
   if (!token) return <Login />;
+  return <Component />;
+}
+
+function MerchantRoute({ component: Component }: { component: React.ComponentType }) {
+  const token = localStorage.getItem("merchantToken");
+  if (!token) return <MerchantLogin />;
   return <Component />;
 }
 
@@ -39,14 +47,19 @@ export default function App() {
   const [location] = useLocation();
 
   const isAdminRoute = location.startsWith("/admin");
-  if (!isAdminRoute && !localStorage.getItem("traderToken") && location !== "/") {
+  const isMerchantRoute = location.startsWith("/merchant");
+
+  if (!isAdminRoute && !isMerchantRoute && !localStorage.getItem("traderToken") && location !== "/") {
     return <Login />;
   }
 
   return (
     <div className="bg-black min-h-screen">
       <Switch>
+        {/* Общие */}
         <Route path="/" component={Login} />
+        
+        {/* Трейдерские */}
         <Route path="/dashboard"   component={() => <PrivateRoute component={Dashboard} />} />
         <Route path="/orders"      component={() => <PrivateRoute component={Orders} />} />
         <Route path="/cards"       component={() => <PrivateRoute component={MyCards} />} />
@@ -67,6 +80,12 @@ export default function App() {
         <Route path="/download-apk" component={() => <PrivateRoute component={DownloadApk} />} />
         <Route path="/payment-methods" component={() => <PrivateRoute component={PaymentMethods} />} />
         <Route path="/counterparties" component={() => <PrivateRoute component={Counterparties} />} />
+        
+        {/* Мерчантские */}
+        <Route path="/merchant/login"      component={MerchantLogin} />
+        <Route path="/merchant/dashboard"  component={() => <MerchantRoute component={MerchantDashboard} />} />
+        
+        {/* Админские */}
         <Route path="/admin"           component={AdminLogin} />
         <Route path="/admin/dashboard" component={() => <AdminRoute component={AdminDashboard} />} />
       </Switch>
